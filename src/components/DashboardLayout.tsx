@@ -1,22 +1,30 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { Loading } from './Loading';
 
-export default function DashboardLayout({
-  children,
-}: {
+interface DashboardLayoutProps {
   children: React.ReactNode;
-}) {
-  const [isScrolled, setIsScrolled] = useState(false);
-  const { user, signOut } = useAuth();
+}
+
+export default function DashboardLayout({ children }: DashboardLayoutProps) {
+  const { user, loading, signOut } = useAuth();
   const router = useRouter();
+  const currentPath = usePathname();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/signin');
+    }
+  }, [user, loading, router]);
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
+      setIsScrolled(window.scrollY > 20);
     };
 
     window.addEventListener('scroll', handleScroll);
@@ -33,53 +41,73 @@ export default function DashboardLayout({
   };
 
   const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase();
+    return name.charAt(0).toUpperCase();
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loading />
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <nav className={`nav-container ${isScrolled ? 'scrolled' : ''}`}>
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 to-black">
+      {/* Navigation Header */}
+      <nav className="nav-container">
         <div className="nav-content">
           <Link href="/" className="nav-logo">
-            <div className="nav-logo-icon"></div>
+            <div className="nav-logo-icon">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
             <span className="nav-logo-text">Matias AI</span>
           </Link>
 
           <div className="nav-links">
-            <Link href="/dashboard" className="nav-link">Dashboard</Link>
-            <Link href="/picks" className="nav-link">AI Picks</Link>
-            <Link href="/bet-tracker" className="nav-link">Bet Tracker</Link>
+            <Link href="/dashboard" className={`nav-link ${currentPath === '/dashboard' ? 'active' : ''}`}>
+              Dashboard
+            </Link>
+            <Link href="/picks" className={`nav-link ${currentPath === '/picks' ? 'active' : ''}`}>
+              AI Picks
+            </Link>
+            <Link href="/bet-tracker" className={`nav-link ${currentPath === '/bet-tracker' ? 'active' : ''}`}>
+              Bet Tracker
+            </Link>
           </div>
 
           <div className="nav-auth">
-            {user ? (
-              <div className="nav-user" onClick={handleSignOut}>
+            {user && (
+              <div className="nav-user">
                 <div className="nav-user-avatar">
                   {user.photoURL ? (
                     <img src={user.photoURL} alt={user.displayName || 'User'} />
                   ) : (
-                    <span>{getInitials(user.displayName || user.email?.split('@')[0] || 'User')}</span>
+                    <span>{getInitials(user.displayName || 'User')}</span>
                   )}
                 </div>
                 <div className="nav-user-info">
-                  <span className="nav-user-name">{user.displayName || user.email?.split('@')[0]}</span>
+                  <span className="nav-user-name">{user.displayName || user.email?.split('@')[0] || 'User'}</span>
                   <span className="nav-user-tier">Free Tier</span>
                 </div>
+                <button 
+                  onClick={handleSignOut} 
+                  className="nav-sign-in ml-4"
+                >
+                  Sign Out
+                </button>
               </div>
-            ) : (
-              <Link href="/signin" className="nav-sign-in">Sign In</Link>
             )}
           </div>
         </div>
       </nav>
 
+      {/* Main Content */}
       <main className="dashboard-content">
         {children}
       </main>
     </div>
   );
-} 
+}

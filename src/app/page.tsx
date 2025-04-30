@@ -40,41 +40,45 @@ export default function Home() {
   return (
     <main>
       {/* Header */}
-      <header className={isScrolled ? 'scrolled' : ''}>
-        <div className="container">
-          <nav>
-            <div className="logo">
-              <div className="logo-icon"></div>
-              <div className="logo-text">Matias AI</div>
+      <header className={`nav-container ${isScrolled ? 'scrolled' : ''}`}>
+        <div className="nav-content">
+          <Link href="/" className="nav-logo">
+            <div className="nav-logo-icon">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
             </div>
-            <div className="nav-links">
-              <Link href="#pricing">Pricing</Link>
-              <Link href="#features">Features</Link>
-              <Link href="#blog">Blog</Link>
-            </div>
+            <span className="nav-logo-text">Matias AI</span>
+          </Link>
+
+          <div className="nav-links">
+            <Link href="#pricing" className="nav-link">Pricing</Link>
+            <Link href="#features" className="nav-link">Features</Link>
+            <Link href="#blog" className="nav-link">Blog</Link>
+          </div>
+
+          <div className="nav-auth">
             {user ? (
-              <div className="user-menu">
-                <div className="user-avatar">
+              <div className="nav-user">
+                <div className="nav-user-avatar">
                   {user.photoURL ? (
                     <img src={user.photoURL} alt={user.displayName || 'User'} />
                   ) : (
-                    <div className="avatar-placeholder">
-                      {getInitials(user.displayName || 'User')}
-                    </div>
+                    <span>{getInitials(user.displayName || 'User')}</span>
                   )}
                 </div>
-                <div className="user-info">
-                  <span className="user-name">{user.displayName || user.email?.split('@')[0] || 'User'}</span>
-                  <span className="user-tier">Free Tier</span>
+                <div className="nav-user-info">
+                  <span className="nav-user-name">{user.displayName || user.email?.split('@')[0] || 'User'}</span>
+                  <span className="nav-user-tier">Free Tier</span>
                 </div>
-                <button onClick={handleSignOut} className="logout-btn">
+                <button onClick={handleSignOut} className="nav-link">
                   Sign Out
                 </button>
               </div>
             ) : (
-              <Link href="/signin" className="sign-up-btn no-underline">Sign In</Link>
+              <Link href="/signin" className="nav-sign-in">Sign In</Link>
             )}
-          </nav>
+          </div>
         </div>
       </header>
 

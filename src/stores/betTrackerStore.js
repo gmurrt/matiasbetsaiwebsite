@@ -1,7 +1,7 @@
 // src/stores/betTrackerStore.js
 
 import { createContext, useContext, useEffect, useState } from 'react';
-import { getFirestore, collection, addDoc, updateDoc, doc, getDocs, query, where } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, updateDoc, doc, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import openAiService from '../services/openAiService';
 
@@ -14,9 +14,17 @@ export const BetTrackerProvider = ({ children }) => {
   const { currentUser } = useAuth();
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [stats, setStats] = useState(null);
   const [insights, setInsights] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
+  const [filters, setFilters] = useState({
+    sport: '',
+    result: '',
+    startDate: '',
+    endDate: '',
+    isAiPick: undefined
+  });
   const db = getFirestore();
 
   // Load user's bets from Firestore
@@ -30,25 +38,29 @@ export const BetTrackerProvider = ({ children }) => {
 
       try {
         setLoading(true);
+        setError(null);
         const betsQuery = query(
           collection(db, 'bets'),
-          where('userId', '==', currentUser.uid)
+          where('userId', '==', currentUser.uid),
+          orderBy('date', 'desc')
         );
         
         const snapshot = await getDocs(betsQuery);
         const betsList = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
-          date: doc.data().date?.toDate() || new Date() // Convert Firestore timestamp to Date
+          date: doc.data().date?.toDate() || new Date(),
+          eventDate: doc.data().eventDate?.toDate() || new Date(),
+          createdAt: doc.data().createdAt?.toDate() || new Date(),
+          updatedAt: doc.data().updatedAt?.toDate(),
+          settledAt: doc.data().settledAt?.toDate()
         }));
-        
-        // Sort by date (newest first)
-        betsList.sort((a, b) => b.date - a.date);
         
         setBets(betsList);
         calculateStats(betsList);
-      } catch (error) {
-        console.error('Error fetching bets:', error);
+      } catch (err) {
+        console.error('Error fetching bets:', err);
+        setError('Failed to load bets. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -378,24 +390,27 @@ export const BetTrackerProvider = ({ children }) => {
   };
 
   // Value provided to the context consumer
-  const value = {
-    bets,
-    loading,
-    stats,
-    insights,
-    aiLoading,
-    addBet,
-    updateBet,
-    updateBetResult,
-    logPickFromPrediction,
-    getAiInsights,
-    getPerformanceByCategory,
-    filterBets,
-    getBestPerformingBets
-  };
-
   return (
-    <BetTrackerContext.Provider value={value}>
+    <BetTrackerContext.Provider 
+      value={{
+        bets,
+        loading,
+        error,
+        stats,
+        insights,
+        aiLoading,
+        filters,
+        addBet,
+        updateBet,
+        updateBetResult,
+        logPickFromPrediction,
+        getAiInsights,
+        getPerformanceByCategory,
+        filterBets,
+        getBestPerformingBets,
+        setFilters
+      }}
+    >
       {children}
     </BetTrackerContext.Provider>
   );

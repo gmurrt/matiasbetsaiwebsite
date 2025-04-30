@@ -91,7 +91,7 @@ export default function Dashboard() {
         
         <div className="header-center">
           <nav className="main-nav">
-            <Link href="/dashboard" className="nav-item active">
+            <Link href="dashboard" className="nav-item active">
               Dashboard
             </Link>
             <Link href="/picks" className="nav-item">

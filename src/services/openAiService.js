@@ -146,36 +146,29 @@ export const identifyValueBets = (event, aiPrediction) => {
  * @returns {number} Sharpness score (0-100)
  */
 export const calculateSharpnessScore = (event, prediction) => {
-  // This would be more complex in a real implementation
-  // Factors that could influence sharpness:
-  // 1. Consensus among bookmakers (low variance in odds)
-  // 2. Amount of historical data available
-  // 3. Consistency of team performance
-  // 4. Absence of major recent changes (injuries, trades, etc.)
+  if (!event || !prediction || !prediction.prediction) {
+    return 0;
+  }
+
+  const { prediction: probabilities } = prediction;
   
-  const { recommendedBet, prediction: probabilities } = prediction;
-  
-  // Simplistic implementation - higher confidence and clearer probability differences
-  // indicate a "sharper" prediction
-  const confidenceComponent = recommendedBet.confidence * 0.5; // 50% of score
+  // Calculate confidence component (50% of score)
+  const confidenceComponent = prediction.recommendedBet.confidence * 0.5;
   
   // Calculate the gap between highest and second highest probability
   const probArray = [
     probabilities.homeWinProbability, 
-    probabilities.awayWinProbability
-  ];
+    probabilities.awayWinProbability,
+    probabilities.drawProbability
+  ].filter(Boolean); // Remove any null/undefined values
   
-  if (probabilities.drawProbability) {
-    probArray.push(probabilities.drawProbability);
-  }
+  if (probArray.length < 2) return Math.round(confidenceComponent);
   
   probArray.sort((a, b) => b - a);
   const probabilityGap = probArray[0] - probArray[1];
   const gapComponent = probabilityGap * 2 * 0.5; // 50% of score, gap scaled by factor of 2
   
-  const sharpnessScore = Math.min(100, Math.round(confidenceComponent + gapComponent));
-  
-  return sharpnessScore;
+  return Math.min(100, Math.round(confidenceComponent + gapComponent));
 };
 
 /**
@@ -216,78 +209,221 @@ export const findUnderdogAlerts = (events) => {
 
 /**
  * Analyzes a user's betting history to provide feedback
- * @param {Array} betHistory - User's past bets
+ * @param {Array} bets - User's past bets
  * @returns {Promise<Object>} AI-generated betting feedback and insights
  */
-export const analyzeBettingHistory = async (betHistory) => {
+export const analyzeBettingHistory = async (bets) => {
+  if (!bets || bets.length === 0) {
+    return [];
+  }
+
   try {
-    const formatBetHistory = betHistory.map(bet => ({
-      sport: bet.sportTitle,
-      homeTeam: bet.homeTeam,
-      awayTeam: bet.awayTeam,
-      selectedTeam: bet.selectedTeam,
-      odds: bet.odds,
-      stake: bet.stake,
-      result: bet.result, // win, loss, push
-      betType: bet.betType, // moneyline, spread, total, etc.
-      date: bet.date
-    }));
+    // Group bets by different categories
+    const sportStats = groupBetsByCategory(bets, 'sportTitle');
+    const timeStats = analyzeTimePatterns(bets);
+    const streakAnalysis = analyzeStreaks(bets);
     
-    const prompt = `
-      As a betting performance analyst, review this betting history and provide actionable insights:
-      
-      ${JSON.stringify(formatBetHistory, null, 2)}
-      
-      Please analyze this betting history and provide:
-      1. Overall performance metrics (win rate, ROI, etc.)
-      2. Strengths and weaknesses by sport, bet type, and team selection
-      3. Specific patterns or biases in betting behavior
-      4. Actionable recommendations to improve results
-      5. Specific sports/leagues/bet types where the user is performing well or poorly
-      
-      Format your response as a valid JSON object with the following structure:
-      {
-        "overallPerformance": {
-          "winRate": number,
-          "roi": number,
-          "avgOdds": number,
-          "totalBets": number,
-          "profitLoss": number
-        },
-        "strengths": ["strength1", "strength2"],
-        "weaknesses": ["weakness1", "weakness2"],
-        "patterns": ["pattern1", "pattern2"],
-        "recommendations": ["recommendation1", "recommendation2"],
-        "breakdownBySport": [
-          {
-            "sport": "string",
-            "winRate": number,
-            "roi": number,
-            "totalBets": number
-          }
-        ],
-        "insightSummary": "string"
-      }
-    `;
+    const insights = [
+      generateSportInsights(sportStats),
+      generateTimeInsights(timeStats),
+      generateStreakInsights(streakAnalysis)
+    ].filter(Boolean);
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "user",
-          content: prompt
-        }
-      ],
-      response_format: { type: "json_object" }
-    });
-
-    // Parse the response from OpenAI
-    const content = response.choices[0].message.content;
-    return JSON.parse(content);
+    return insights;
   } catch (error) {
     console.error('Error analyzing betting history:', error);
-    throw error;
+    throw new Error('Failed to analyze betting history. Please try again.');
   }
+};
+
+const groupBetsByCategory = (bets, category) => {
+  return bets.reduce((acc, bet) => {
+    const key = bet[category];
+    if (!acc[key]) {
+      acc[key] = {
+        wins: 0,
+        losses: 0,
+        pushes: 0,
+        totalStake: 0,
+        totalReturn: 0,
+        bets: []
+      };
+    }
+    
+    acc[key].bets.push(bet);
+    acc[key].totalStake += bet.stake;
+    acc[key].totalReturn += bet.returnAmount || 0;
+    
+    if (bet.result === 'win') acc[key].wins++;
+    else if (bet.result === 'loss') acc[key].losses++;
+    else if (bet.result === 'push') acc[key].pushes++;
+    
+    return acc;
+  }, {});
+};
+
+const analyzeTimePatterns = (bets) => {
+  // Group bets by day of week and time of day
+  const timeAnalysis = {
+    byDayOfWeek: Array(7).fill(0).map(() => ({
+      wins: 0, losses: 0, pushes: 0, total: 0
+    })),
+    byTimeOfDay: {
+      morning: { wins: 0, losses: 0, pushes: 0, total: 0 },
+      afternoon: { wins: 0, losses: 0, pushes: 0, total: 0 },
+      evening: { wins: 0, losses: 0, pushes: 0, total: 0 },
+      night: { wins: 0, losses: 0, pushes: 0, total: 0 }
+    }
+  };
+  
+  bets.forEach(bet => {
+    const date = new Date(bet.date);
+    const dayOfWeek = date.getDay();
+    const hour = date.getHours();
+    
+    // Update day of week stats
+    timeAnalysis.byDayOfWeek[dayOfWeek].total++;
+    if (bet.result === 'win') timeAnalysis.byDayOfWeek[dayOfWeek].wins++;
+    else if (bet.result === 'loss') timeAnalysis.byDayOfWeek[dayOfWeek].losses++;
+    else if (bet.result === 'push') timeAnalysis.byDayOfWeek[dayOfWeek].pushes++;
+    
+    // Update time of day stats
+    const timeOfDay = 
+      hour < 12 ? 'morning' :
+      hour < 17 ? 'afternoon' :
+      hour < 22 ? 'evening' : 'night';
+    
+    timeAnalysis.byTimeOfDay[timeOfDay].total++;
+    if (bet.result === 'win') timeAnalysis.byTimeOfDay[timeOfDay].wins++;
+    else if (bet.result === 'loss') timeAnalysis.byTimeOfDay[timeOfDay].losses++;
+    else if (bet.result === 'push') timeAnalysis.byTimeOfDay[timeOfDay].pushes++;
+  });
+  
+  return timeAnalysis;
+};
+
+const analyzeStreaks = (bets) => {
+  let currentStreak = 1;
+  let longestWinStreak = 0;
+  let longestLossStreak = 0;
+  let currentType = null;
+  
+  // Sort bets by date
+  const sortedBets = [...bets].sort((a, b) => 
+    new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  
+  sortedBets.forEach((bet, index) => {
+    if (index === 0) {
+      currentType = bet.result;
+      return;
+    }
+    
+    if (bet.result === currentType && bet.result !== 'pending' && bet.result !== 'push') {
+      currentStreak++;
+    } else {
+      if (currentType === 'win') {
+        longestWinStreak = Math.max(longestWinStreak, currentStreak);
+      } else if (currentType === 'loss') {
+        longestLossStreak = Math.max(longestLossStreak, currentStreak);
+      }
+      currentStreak = 1;
+      currentType = bet.result;
+    }
+  });
+  
+  // Check final streak
+  if (currentType === 'win') {
+    longestWinStreak = Math.max(longestWinStreak, currentStreak);
+  } else if (currentType === 'loss') {
+    longestLossStreak = Math.max(longestLossStreak, currentStreak);
+  }
+  
+  return { longestWinStreak, longestLossStreak };
+};
+
+const generateSportInsights = (sportStats) => {
+  const insights = [];
+  
+  Object.entries(sportStats).forEach(([sport, stats]) => {
+    const total = stats.wins + stats.losses;
+    if (total < 5) return; // Need minimum sample size
+    
+    const winRate = (stats.wins / total) * 100;
+    const roi = ((stats.totalReturn - stats.totalStake) / stats.totalStake) * 100;
+    
+    if (winRate > 55) {
+      insights.push({
+        title: `Strong Performance in ${sport}`,
+        description: `You're winning ${winRate.toFixed(1)}% of your bets in ${sport} with ${roi.toFixed(1)}% ROI. Consider focusing more on this sport.`,
+        type: 'success',
+        confidence: winRate
+      });
+    } else if (winRate < 45) {
+      insights.push({
+        title: `Struggling with ${sport}`,
+        description: `Your win rate in ${sport} is only ${winRate.toFixed(1)}%. Consider reducing exposure or reviewing your strategy.`,
+        type: 'warning',
+        confidence: 100 - winRate
+      });
+    }
+  });
+  
+  return insights;
+};
+
+const generateTimeInsights = (timeAnalysis) => {
+  const insights = [];
+  
+  // Analyze best and worst days
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayStats = timeAnalysis.byDayOfWeek.map((stats, index) => {
+    const total = stats.wins + stats.losses;
+    return {
+      day: dayNames[index],
+      winRate: total > 0 ? (stats.wins / total) * 100 : 0,
+      total
+    };
+  });
+  
+  const bestDay = dayStats.reduce((best, curr) => 
+    curr.total >= 5 && curr.winRate > best.winRate ? curr : best
+  , { winRate: 0 });
+  
+  if (bestDay.winRate > 60) {
+    insights.push({
+      title: `${bestDay.day} Success`,
+      description: `You have a ${bestDay.winRate.toFixed(1)}% win rate on ${bestDay.day}s. Consider focusing more on these opportunities.`,
+      type: 'success',
+      confidence: bestDay.winRate
+    });
+  }
+  
+  return insights;
+};
+
+const generateStreakInsights = (streakAnalysis) => {
+  const insights = [];
+  
+  if (streakAnalysis.longestWinStreak >= 3) {
+    insights.push({
+      title: 'Strong Winning Streak',
+      description: `Your longest winning streak is ${streakAnalysis.longestWinStreak} bets. This shows potential for consistent success.`,
+      type: 'success',
+      confidence: 75
+    });
+  }
+  
+  if (streakAnalysis.longestLossStreak >= 4) {
+    insights.push({
+      title: 'Loss Streak Alert',
+      description: `You've experienced a ${streakAnalysis.longestLossStreak}-bet losing streak. Consider implementing stop-loss strategies.`,
+      type: 'warning',
+      confidence: 80
+    });
+  }
+  
+  return insights;
 };
 
 // Export service functions

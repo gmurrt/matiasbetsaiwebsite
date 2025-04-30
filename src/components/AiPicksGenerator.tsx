@@ -17,6 +17,8 @@ import {
   Percent,
   TrendingUp
 } from 'lucide-react';
+import { Loading } from '@/components/Loading'; // Adjust the path based on your project structure
+import { motion, AnimatePresence } from 'framer-motion';
 import oddsApiService from '@/services/oddsApiService';
 import openAiService from '@/services/openAiService';
 import { useBetTracker } from '@/stores/betTrackerStore';
@@ -128,6 +130,17 @@ export default function AiPicksGenerator() {
   const [sport, setSport] = useState('all');
   const [confidence, setConfidence] = useState('all');
 
+  const cardVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -20 }
+  };
+
+  const filterVariants = {
+    expanded: { height: 'auto', opacity: 1 },
+    collapsed: { height: 0, opacity: 0 }
+  };
+
   // Fetch events when selected sport changes
   useEffect(() => {
     fetchEvents(selectedSport);
@@ -235,17 +248,23 @@ export default function AiPicksGenerator() {
 
   return (
     <div className="picks-container">
-      <div className="picks-filters">
+      <motion.div 
+        className="picks-filters"
+        initial="collapsed"
+        animate="expanded"
+        variants={filterVariants}
+      >
         <select 
           value={sport} 
           onChange={(e) => setSport(e.target.value)}
           className="picks-filter-select"
         >
           <option value="all">All Sports</option>
-          <option value="nba">NBA</option>
-          <option value="nfl">NFL</option>
-          <option value="mlb">MLB</option>
-          <option value="nhl">NHL</option>
+          {SUPPORTED_SPORTS.map(sport => (
+            <option key={sport.key} value={sport.key}>
+              {sport.title}
+            </option>
+          ))}
         </select>
 
         <select 
@@ -258,113 +277,158 @@ export default function AiPicksGenerator() {
           <option value="medium">Medium (60-80%)</option>
           <option value="low">Low (&lt;60%)</option>
         </select>
-      </div>
 
-      <div className="picks-grid">
-        {/* Example Pick Cards */}
-        <div className="pick-card">
-          <div className="pick-header">
-            <div className="pick-teams">
-              <div className="pick-league">NBA</div>
-              <div className="pick-matchup">Lakers vs Warriors</div>
-            </div>
-            <div className="pick-confidence">85% Confidence</div>
-          </div>
-          
-          <div className="pick-details">
-            <div className="pick-info">
-              <Calendar className="icon" />
-              <span>Today, 7:30 PM EST</span>
-            </div>
-            <div className="pick-info">
-              <Clock className="icon" />
-              <span>Tip-off in 4 hours</span>
-            </div>
-            <div className="pick-info">
-              <TrendingUp className="icon" />
-              <span>Line Movement: -3.5 → -4.5</span>
-            </div>
-            <div className="pick-info">
-              <Percent className="icon" />
-              <span>Value Rating: High</span>
-            </div>
-          </div>
+        <button
+          className="refresh-button"
+          onClick={() => fetchEvents(selectedSport)}
+          disabled={loadingEvents}
+        >
+          <RefreshCw className={`icon ${loadingEvents ? 'spin' : ''}`} />
+          Refresh Odds
+        </button>
+      </motion.div>
 
-          <div className="pick-prediction">
-            <div className="pick-prediction-label">AI Prediction</div>
-            <div className="pick-prediction-value">Lakers -4.5 (85%)</div>
-          </div>
-        </div>
-
-        {/* More example cards... */}
-        <div className="pick-card">
-          <div className="pick-header">
-            <div className="pick-teams">
-              <div className="pick-league">NFL</div>
-              <div className="pick-matchup">Chiefs vs Eagles</div>
+      <AnimatePresence mode="wait">
+        {loadingEvents ? (
+          <motion.div
+            key="loading"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="loading-state"
+          >
+            <Loading type="skeleton" rows={6} height="160px" />
+          </motion.div>
+        ) : error ? (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="error-container"
+          >
+            <AlertCircle className="error-icon" />
+            <div>
+              <h3 className="error-title">Error Loading Picks</h3>
+              <p className="error-message">{error}</p>
             </div>
-            <div className="pick-confidence">78% Confidence</div>
-          </div>
-          
-          <div className="pick-details">
-            <div className="pick-info">
-              <Calendar className="icon" />
-              <span>Tomorrow, 4:25 PM EST</span>
-            </div>
-            <div className="pick-info">
-              <Clock className="icon" />
-              <span>Kickoff in 28 hours</span>
-            </div>
-            <div className="pick-info">
-              <TrendingUp className="icon" />
-              <span>Line Movement: +2.5 → +3</span>
-            </div>
-            <div className="pick-info">
-              <Percent className="icon" />
-              <span>Value Rating: Medium</span>
-            </div>
-          </div>
-
-          <div className="pick-prediction">
-            <div className="pick-prediction-label">AI Prediction</div>
-            <div className="pick-prediction-value">Chiefs +3 (78%)</div>
-          </div>
-        </div>
-
-        <div className="pick-card">
-          <div className="pick-header">
-            <div className="pick-teams">
-              <div className="pick-league">MLB</div>
-              <div className="pick-matchup">Yankees vs Red Sox</div>
-            </div>
-            <div className="pick-confidence">92% Confidence</div>
-          </div>
-          
-          <div className="pick-details">
-            <div className="pick-info">
-              <Calendar className="icon" />
-              <span>Today, 1:05 PM EST</span>
-            </div>
-            <div className="pick-info">
-              <Clock className="icon" />
-              <span>First Pitch in 2 hours</span>
-            </div>
-            <div className="pick-info">
-              <TrendingUp className="icon" />
-              <span>Line Movement: O8.5 → O9</span>
-            </div>
-            <div className="pick-info">
-              <Percent className="icon" />
-              <span>Value Rating: Very High</span>
-            </div>
-          </div>
-
-          <div className="pick-prediction">
-            <div className="pick-prediction-label">AI Prediction</div>
-            <div className="pick-prediction-value">Over 9 (92%)</div>
-          </div>
-        </div>
-      </div>
+            <button 
+              className="error-dismiss"
+              onClick={() => setError(null)}
+            >
+              ×
+            </button>
+          </motion.div>
+        ) : (
+          <motion.div 
+            className="picks-grid"
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+          >
+            <AnimatePresence>
+              {events.map((event, index) => (
+                <motion.div
+                  key={event.id}
+                  variants={cardVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  transition={{ delay: index * 0.1 }}
+                  className="pick-card"
+                >
+                  <div className="pick-header">
+                    <div className="pick-teams">
+                      <div className="pick-league">{event.sportTitle}</div>
+                      <div className="pick-matchup">
+                        {event.homeTeam} vs {event.awayTeam}
+                      </div>
+                    </div>
+                    {event.aiPrediction ? (
+                      <div 
+                        className={`pick-confidence ${
+                          event.aiPrediction.recommendedBet.confidence >= 80 
+                            ? 'high' 
+                            : event.aiPrediction.recommendedBet.confidence >= 65 
+                              ? 'medium' 
+                              : 'low'
+                        }`}
+                      >
+                        {event.aiPrediction.recommendedBet.confidence}% Confidence
+                      </div>
+                    ) : (
+                      <button
+                        className="analyze-button"
+                        onClick={() => generatePrediction(event.id)}
+                        disabled={generatingPrediction && activeEventId === event.id}
+                      >
+                        {generatingPrediction && activeEventId === event.id ? (
+                          <Loading type="spinner" className="button-spinner" />
+                        ) : (
+                          <>
+                            <Zap className="icon" />
+                            Analyze
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="pick-details">
+                    <div className="pick-info">
+                      <Calendar className="icon" />
+                      {new Date(event.commenceTime).toLocaleString()}
+                    </div>
+                    
+                    {event.aiPrediction && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="pick-prediction"
+                      >
+                        <div className="pick-prediction-label">AI Pick</div>
+                        <div className="pick-prediction-value">
+                          {event.aiPrediction.recommendedBet.pick === 'home' 
+                            ? event.homeTeam 
+                            : event.aiPrediction.recommendedBet.pick === 'away'
+                              ? event.awayTeam
+                              : 'Draw'
+                          }
+                        </div>
+                        <div className="pick-odds">
+                          <TrendingUp className="icon" />
+                          {formatOdds(event.odds[event.aiPrediction.recommendedBet.pick]?.price)}
+                        </div>
+                        {event.valueBetAnalysis?.hasValueBet && (
+                          <div className="value-bet-badge">
+                            <Star className="icon" />
+                            {event.valueBetAnalysis?.bestValueBet 
+                              ? `Value Bet (+${event.valueBetAnalysis.bestValueBet.edge.toFixed(1)}% edge)` 
+                              : 'No Value Bet'}
+                          </div>
+                        )}
+                        <div className="sharpness-score">
+                          <div className="score-label">Sharpness Score</div>
+                          <div className={`score-value ${getSharpnessColor(event.aiPrediction.sharpnessScore)}`}>
+                            {event.aiPrediction.sharpnessScore}
+                          </div>
+                        </div>
+                        <button 
+                          className="log-pick-button"
+                          onClick={() => handleLogPick(event.id)}
+                        >
+                          Log Pick
+                        </button>
+                      </motion.div>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
