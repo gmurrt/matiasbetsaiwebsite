@@ -149,19 +149,40 @@ export default function Home() {
           <div className="steps">
             <div className="step">
               <div className="step-number">1</div>
-              <div className="step-image">Screenshot: Daily Picks View</div>
+              <div className="step-image">
+                <Image 
+                  src="/Img_demo/image1.png" 
+                  alt="Daily picks"
+                  width={300}
+                  height={200}
+                />
+              </div>
               <h3>Get Daily Picks</h3>
               <p>AI sends you the top bets based on today's data, predictions, and value opportunities.</p>
             </div>
             <div className="step">
               <div className="step-number">2</div>
-              <div className="step-image">Screenshot: Bet Placement View</div>
+              <div className="step-image">
+                <Image 
+                  src="/Img_demo/image2.png" 
+                  alt="Bet placement"
+                  width={300}
+                  height={200}
+                />
+              </div>
               <h3>Place Your Bets</h3>
               <p>Follow picks or customize your own plays with confidence based on our AI analysis.</p>
             </div>
             <div className="step">
               <div className="step-number">3</div>
-              <div className="step-image">Screenshot: Analytics Dashboard</div>
+              <div className="step-image">
+                <Image 
+                  src="/Img_demo/image3.png" 
+                  alt="Analytics dashboard"
+                  width={300}
+                  height={200}
+                />
+              </div>
               <h3>Track & Improve</h3>
               <p>Log your bets and get AI coaching to boost your ROI and refine your strategy.</p>
             </div>

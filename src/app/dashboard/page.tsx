@@ -5,18 +5,45 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import AiPicksGenerator from '@/components/AiPicksGenerator';
 import BetTracker from '@/components/BetTracker';
-import { BetTrackerProvider } from '@/stores/betTrackerStore';
+import { BetTrackerProvider, useBetTracker } from '@/stores/betTrackerStore';
 import { BarChart2, ChevronRight, Dices, TrendingUp, Zap } from 'lucide-react';
 import DashboardLayout from '@/components/DashboardLayout';
+
+interface Bet {
+  id: string;
+  date: Date;
+  result: 'pending' | 'win' | 'loss' | 'push';
+  stake: number;
+  sportTitle: string;
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('overview');
 
-  return (
-    <DashboardLayout>
-      <BetTrackerProvider>
+  function DashboardContent() {
+    const { stats, bets, loading } = useBetTracker();
+    
+    // Get today's date at midnight for comparison
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Calculate today's picks
+    const todaysPicks = bets.filter((bet: Bet) => {
+      const betDate = new Date(bet.date);
+      betDate.setHours(0, 0, 0, 0);
+      return betDate.getTime() === today.getTime();
+    });
+
+    // Get active bets
+    const activeBets = bets.filter((bet: Bet) => bet.result === 'pending');
+    
+    // Calculate total stake for active bets
+    const totalStake = activeBets.reduce((sum: number, bet: Bet) => sum + (bet.stake || 0), 0);
+
+    return (
+      <>
         <div className="dashboard-welcome">
           <h1>Welcome, {user?.displayName || user?.email?.split('@')[0]}</h1>
           <p>
@@ -62,9 +89,9 @@ export default function Dashboard() {
                 <div className="stat-header">
                   <Zap className="icon icon-blue" /> Today's Picks
                 </div>
-                <div className="stat-value">6</div>
+                <div className="stat-value">{loading ? '...' : todaysPicks.length}</div>
                 <p className="stat-label">
-                  Across 3 sports
+                  New picks today
                 </p>
               </div>
               
@@ -72,7 +99,9 @@ export default function Dashboard() {
                 <div className="stat-header">
                   <TrendingUp className="icon icon-green" /> Win Rate
                 </div>
-                <div className="stat-value">62.5%</div>
+                <div className="stat-value">
+                  {loading ? '...' : `${stats?.winRate?.toFixed(1) || 0}%`}
+                </div>
                 <p className="stat-trend">
                   <svg
                     className="icon"
@@ -88,7 +117,7 @@ export default function Dashboard() {
                       d="M5 10l7-7m0 0l7 7m-7-7v18"
                     />
                   </svg>
-                  4.2% from last week
+                  ROI: {loading ? '...' : `${stats?.roi?.toFixed(1) || 0}%`}
                 </p>
               </div>
               
@@ -96,9 +125,9 @@ export default function Dashboard() {
                 <div className="stat-header">
                   <Dices className="icon icon-purple" /> Active Bets
                 </div>
-                <div className="stat-value">3</div>
+                <div className="stat-value">{loading ? '...' : activeBets.length}</div>
                 <p className="stat-label">
-                  $150 total at stake
+                  ${loading ? '...' : totalStake.toFixed(0)} total at stake
                 </p>
               </div>
             </div>
@@ -190,6 +219,14 @@ export default function Dashboard() {
         {activeTab === 'bet-tracker' && (
           <BetTracker />
         )}
+      </>
+    );
+  }
+
+  return (
+    <DashboardLayout>
+      <BetTrackerProvider>
+        <DashboardContent />
       </BetTrackerProvider>
     </DashboardLayout>
   );

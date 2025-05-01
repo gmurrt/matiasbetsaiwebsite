@@ -70,9 +70,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             <Link href="/dashboard" className={`nav-link ${currentPath === '/dashboard' ? 'active' : ''}`}>
               Dashboard
             </Link>
-            <Link href="/picks" className={`nav-link ${currentPath === '/picks' ? 'active' : ''}`}>
-              AI Picks
-            </Link>
+            <div className="nav-link-wrapper" title="Premium Feature - Coming Soon">
+              <span className={`nav-link disabled`}>
+                AI Picks
+                <span className="premium-badge">PRO</span>
+              </span>
+            </div>
             <Link href="/bet-tracker" className={`nav-link ${currentPath === '/bet-tracker' ? 'active' : ''}`}>
               Bet Tracker
             </Link>
